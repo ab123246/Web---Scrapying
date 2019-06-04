@@ -35,12 +35,12 @@ def get_mainpage(mainURL,totalpages):
         res.encoding = 'big-5'
         soup = BeautifulSoup(res.text, "html.parser")
         commercial = len(soup.find_all("a",{"class" : "title text-wrap highlight"}))
-        title = soup.find_all("a" , {"class" : "title text-wrap "})
+        title = soup.find_all("a" , {"class" : "title text-wrap"})#space included
         popul = soup.find_all("span",{"class" : "num"})
         popul = popul[commercial:]
         reply = soup.find_all("span" , {"class" : "count"})
         reply = reply[commercial:]
-        posttime = soup.find_all("li",{"class" : "author"})#.findChildren('span')
+        posttime = soup.find_all("li",{"class" : "author"})
         lastreply = soup.find_all("a",{"class" : "last-respond"})
         for tag in posttime:
             atime = tag.find("span")
@@ -49,16 +49,16 @@ def get_mainpage(mainURL,totalpages):
         aposttime = aposttime[commercial*2:]
         for i in range(len(title)):
             areply.append(reply[i].text.replace(",", ""))
-            atitle.append(title[i].text)
+            atitle.append('<a href="https://www.eprice.com.tw'+str(title[i].get('href')+'">'+str(title[i].text)+'</a>'))
             ahyperlinks.append('https://www.eprice.com.tw'+str(title[i].get('href')))
             apopul.append(popul[i].text)
             alastreply.append(lastreply[i].text)
-    
-    alist = [atitle,ahyperlinks,apopul,alastreply,aposttime]
+            
+    alist = [atitle,ahyperlinks,apopul,aposttime,alastreply]
     return alist
 
 def deldatesbyrecentreply(df,date):
-    dates = df['最新回應'].tolist()
+    dates = df['Final Date'].tolist()
     start = 0
     startnum = 0
     endnum = 0
@@ -73,7 +73,7 @@ def deldatesbyrecentreply(df,date):
     return df
 
 def deldatesbyposttime(df,date):
-    dates = df['貼文時間'].tolist()
+    dates = df['Original Date'].tolist()
     newdates = []
     for i in range(len(dates)):
         newdates.append(dates[i].split(' ')[0].replace("-", ""))
@@ -81,21 +81,34 @@ def deldatesbyposttime(df,date):
     #print(df)
     df = df.loc[df['date'] == str(date)]
     df = df.drop(['date'],axis=1) 
-    print(df)
     return df     
 
+def getlastcomment(URL,lastpage):
+    lastpage = lastpage[-2].text.replace('.','')
+    URL = URL.replace('/1/','/'+str(lastpage)+'/')
+    res = rs.get(URL,headers = header)
+    res.encoding = 'big-5'
+    soup = BeautifulSoup(res.text, "html.parser")
+    comment = soup.find_all('div',{'class':'user-comment-block'})
+    comment = comment[-3].text.replace('\t','').replace('\r','')
+    return comment
+    
 def getarticle(df):
-    hyperlink = df['連結']
-    aarticle = []
+    hyperlink = df['Titlelink']
+    aarticle = [] 
+    lastcomment = []
     for URL in hyperlink:
         res = rs.get(URL,headers = header)
         res.encoding = 'big-5'
         soup = BeautifulSoup(res.text, "html.parser")
         article = soup.find("div" , {"class" : "user-comment-block"})
         aarticle.append(article.text.replace('\t','').replace('\r',''))
-    df['文章'] = aarticle
+        lastpage = soup.find_all('a' ,{'data-name': 'page'})
+        lastcomment.append(getlastcomment(URL,lastpage))
+    df['Final'] = lastcomment
+    df['Original'] = aarticle
     return df 
-
+    
 def geteprice(inputdate):
     datalist = []
     URL = mainURL+'/mobile/talk/4543/0/1/'
@@ -103,11 +116,12 @@ def geteprice(inputdate):
     maindata = get_mainpage(mainURL,totalpages)
     for i in range(len(maindata[0])):
         datalist.append([maindata[0][i],maindata[1][i],maindata[2][i],maindata[3][i],maindata[4][i]])
-    output = pd.DataFrame(datalist, columns = ['主題','連結','人氣','最新回應','貼文時間'])
-    output = deldatesbyposttime(output,inputdate)
+    output = pd.DataFrame(datalist, columns = ['title','Titlelink','hot','Original Date','Final Date'])
+    output = deldatesbyrecentreply(output,inputdate)
     output = getarticle(output)
+    output = output[['title','Titlelink','hot','Original','Original Date','Final','Final Date']]
+    output = output.drop(['Titlelink'], axis=1)
     return output
 
-a=geteprice(20190517)
+a=geteprice(20190604)
 print(a)
-    
