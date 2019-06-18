@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Spyder Editor
+
+This is a temporary script file.
+需要的欄位
+1.     主題
+2.     內文連結
+3.     人氣
+4.     內文內容
+5.     發文時間
 """
 
 import pandas as pd
@@ -84,13 +92,19 @@ def deldatesbyposttime(df,date):
     return df     
 
 def getlastcomment(URL,lastpage):
-    lastpage = lastpage[-2].text.replace('.','')
-    URL = URL.replace('/1/','/'+str(lastpage)+'/')
+    if lastpage != []:
+        lastpage = lastpage[-2].text.replace('.','')
+        URL = URL.replace('/1/','/'+str(lastpage)+'/')
     res = rs.get(URL,headers = header)
     res.encoding = 'big-5'
     soup = BeautifulSoup(res.text, "html.parser")
     comment = soup.find_all('div',{'class':'user-comment-block'})
-    comment = comment[-3].text.replace('\t','').replace('\r','')
+    try:
+        comment = comment[-3].text.replace('\t','').replace('\r','')
+    except:
+        comment = 'None'
+    if len(comment)>100:
+        comment = comment[:100]+'...'
     return comment
     
 def getarticle(df):
@@ -102,7 +116,10 @@ def getarticle(df):
         res.encoding = 'big-5'
         soup = BeautifulSoup(res.text, "html.parser")
         article = soup.find("div" , {"class" : "user-comment-block"})
-        aarticle.append(article.text.replace('\t','').replace('\r',''))
+        article = article.text.replace('\t','').replace('\r','')
+        if len(article)>100:
+            article = article[:100]+'...'
+        aarticle.append(article)
         lastpage = soup.find_all('a' ,{'data-name': 'page'})
         lastcomment.append(getlastcomment(URL,lastpage))
     df['Final'] = lastcomment
@@ -123,5 +140,4 @@ def geteprice(inputdate):
     output = output.drop(['Titlelink'], axis=1)
     return output
 
-a=geteprice(20190604)
-print(a)
+a=geteprice(20190616)
